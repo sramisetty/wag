@@ -1,0 +1,8 @@
+Import single EAB into data parser
+
+For each same Page (Col A) and Layout (Col B), collect all WICs into a set.
+Match that set against WAG History for exact same set of WICs if exists and pull in Headline and Body Copy.
+
+If not, use WICs in set to then collect UPCs from WAG Master Item, collect them as a set and bounce those against an API/AI to generate Headline and Body Copy.
+
+Take a look at the PDFs and matching EAB.

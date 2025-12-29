@@ -1,0 +1,126 @@
+# WAG Ad Copy LLM Fine-Tuning Requirements
+# ==========================================
+# Install with: pip install -r requirements.txt
+#
+# For GPU support, ensure CUDA is installed first:
+#   - CUDA 12.1+ recommended
+#   - cuDNN 8.9+
+#
+# Author: Enterprise Architecture Team
+# Created: November 2025
+
+# =============================================================================
+# CORE DEPENDENCIES
+# =============================================================================
+
+# Data Processing
+pandas>=2.0.0
+openpyxl>=3.1.0          # For .xlsx files
+xlrd>=2.0.0              # For .xls files (legacy EAB format)
+numpy>=1.24.0
+
+# =============================================================================
+# MACHINE LEARNING - PyTorch
+# =============================================================================
+
+# PyTorch (install with CUDA support separately if needed)
+# For CUDA 12.1: pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1.0
+
+# =============================================================================
+# TRANSFORMERS & FINE-TUNING
+# =============================================================================
+
+# Hugging Face ecosystem
+transformers>=4.36.0
+datasets>=2.15.0
+accelerate>=0.25.0
+tokenizers>=0.15.0
+
+# Parameter-efficient fine-tuning
+peft>=0.7.0              # LoRA, QLoRA, etc.
+
+# Training utilities
+trl>=0.7.0               # Transformer Reinforcement Learning (SFTTrainer)
+
+# Quantization
+bitsandbytes>=0.41.0     # 4-bit quantization for QLoRA
+
+# =============================================================================
+# EVALUATION & METRICS
+# =============================================================================
+
+# NLP metrics
+sacrebleu>=2.3.0         # BLEU score
+rouge-score>=0.1.2       # ROUGE metrics
+nltk>=3.8.0              # Tokenization, etc.
+
+# =============================================================================
+# INFERENCE & DEPLOYMENT
+# =============================================================================
+
+# API and web
+requests>=2.31.0
+flask>=3.0.0             # Optional: for API server
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+# Configuration
+pyyaml>=6.0.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Logging
+loguru>=0.7.0            # Optional: enhanced logging
+
+# =============================================================================
+# DEVELOPMENT (Optional)
+# =============================================================================
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Code quality
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.1.0
+
+# Jupyter (for notebooks)
+jupyter>=1.0.0
+ipykernel>=6.25.0
+
+# =============================================================================
+# EXPERIMENT TRACKING (Optional)
+# =============================================================================
+
+# Weights & Biases
+# wandb>=0.16.0
+
+# MLflow
+# mlflow>=2.9.0
+
+# TensorBoard
+# tensorboard>=2.15.0
+
+# =============================================================================
+# INSTALLATION NOTES
+# =============================================================================
+
+# Full installation (GPU):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+#
+# CPU only (slower, for testing):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+#
+# Minimal installation (data prep only):
+#   pip install pandas openpyxl xlrd pyyaml tqdm
+#
+# For Unsloth (faster training, optional):
+#   pip install unsloth
+#   # See: https://github.com/unslothai/unsloth

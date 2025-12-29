@@ -1,0 +1,6 @@
+.DS_Store
+.qodo/
+*.fmp12
+__pycache__/
+*.pyc
+scripts/output/

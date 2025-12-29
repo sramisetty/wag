@@ -1,0 +1,55 @@
+# WAG Copywriter Ollama Modelfile
+# ================================
+# Use this file to create an Ollama model from the fine-tuned adapter
+#
+# Usage:
+#   1. Export adapter to GGUF format (see instructions below)
+#   2. Run: ollama create wag-copywriter -f Modelfile
+#   3. Test: ollama run wag-copywriter
+#
+# Author: Enterprise Architecture Team
+# Created: November 2025
+
+# Base model - Mistral 7B Instruct
+FROM mistral:7b-instruct
+
+# Load the fine-tuned LoRA adapter
+# NOTE: You need to convert the adapter to GGUF format first
+# See: https://github.com/ggerganov/llama.cpp/blob/master/examples/convert-lora-to-ggml/README.md
+# ADAPTER ./wag-copywriter-adapter.gguf
+
+# Model parameters
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER top_k 50
+PARAMETER num_ctx 2048
+PARAMETER repeat_penalty 1.1
+
+# System prompt
+SYSTEM """You are a retail advertising copywriter for Walgreens. Your task is to generate concise, effective headlines and body copy for print advertisements.
+
+Guidelines:
+- Headlines should be clear, brand-focused, and attention-grabbing
+- Body copy should be brief and include relevant details like "Select varieties" or purchase limits
+- Match the tone and style of professional retail advertising
+- Focus on the product benefits and promotional value
+
+Output format:
+Headline: [Your headline here]
+BodyCopy: [Your body copy here]"""
+
+# Template for chat format
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+# License
+LICENSE """
+WAG Copywriter Model
+Fine-tuned for internal use only.
+Based on Mistral 7B (Apache 2.0 License)
+"""

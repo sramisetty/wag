@@ -1,0 +1,230 @@
+# WAG Ad Copy Fine-Tuning Configuration
+# ======================================
+# Configuration for fine-tuning Mistral 7B on retail ad copy generation
+#
+# Author: Enterprise Architecture Team
+# Created: November 2025
+
+# =============================================================================
+# MODEL CONFIGURATION
+# =============================================================================
+model:
+  # Base model to fine-tune
+  name: "mistralai/Mistral-7B-Instruct-v0.2"
+
+  # Alternative models (uncomment to use):
+  # name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  # name: "microsoft/Phi-3-medium-4k-instruct"
+  # name: "Qwen/Qwen2.5-7B-Instruct"
+
+  # Model loading settings
+  torch_dtype: "bfloat16"  # Options: float16, bfloat16, float32
+  trust_remote_code: true
+  device_map: "auto"
+
+# =============================================================================
+# QUANTIZATION (QLoRA)
+# =============================================================================
+quantization:
+  enabled: true
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"  # Options: nf4, fp4
+  bnb_4bit_use_double_quant: true  # Nested quantization for memory savings
+
+# =============================================================================
+# LoRA CONFIGURATION
+# =============================================================================
+lora:
+  r: 64                    # LoRA rank (higher = more capacity, more VRAM)
+  lora_alpha: 128          # LoRA alpha (typically 2x r)
+  lora_dropout: 0.05       # Dropout for regularization
+  bias: "none"             # Options: none, all, lora_only
+  task_type: "CAUSAL_LM"
+
+  # Target modules for LoRA
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# =============================================================================
+# TRAINING PARAMETERS
+# =============================================================================
+training:
+  # Basic settings
+  output_dir: "../output/models/wag-copywriter"
+  num_train_epochs: 3
+  max_steps: -1  # Set to positive number to override epochs
+
+  # Batch sizes
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 8  # Effective batch size = 4 * 8 = 32
+
+  # Learning rate
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"  # Options: linear, cosine, constant
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+
+  # Sequence length
+  max_seq_length: 512  # Adjust based on your data
+
+  # Optimization
+  optim: "paged_adamw_32bit"  # Memory-efficient optimizer
+  fp16: false
+  bf16: true  # Use bfloat16 if supported
+  gradient_checkpointing: true  # Saves VRAM at cost of speed
+
+  # Logging and saving
+  logging_steps: 10
+  save_strategy: "steps"
+  save_steps: 500
+  save_total_limit: 3
+  eval_strategy: "steps"
+  eval_steps: 500
+
+  # Other settings
+  seed: 42
+  dataloader_num_workers: 4
+  remove_unused_columns: true
+  group_by_length: true  # Group similar lengths for efficiency
+  report_to: "none"  # Options: none, wandb, tensorboard
+
+# =============================================================================
+# DATA CONFIGURATION
+# =============================================================================
+data:
+  train_file: "../output/data_enriched/wag_enriched_train.jsonl"
+  val_file: "../output/data_enriched/wag_enriched_val.jsonl"
+  test_file: "../output/data_enriched/wag_enriched_test.jsonl"
+
+  # Fallback to non-enriched data
+  train_file_fallback: "../output/data/wag_train.jsonl"
+  val_file_fallback: "../output/data/wag_val.jsonl"
+
+  # Data processing
+  max_samples: null  # Set to limit training data (for testing)
+  shuffle: true
+
+  # Prompt template
+  prompt_template: |
+    ### Instruction:
+    {instruction}
+
+    ### Input:
+    {input}
+
+    ### Response:
+    {output}
+
+# =============================================================================
+# EVALUATION CONFIGURATION
+# =============================================================================
+evaluation:
+  # Metrics to compute
+  metrics:
+    - "bleu"
+    - "rouge"
+    - "exact_match"
+
+  # Generation settings for evaluation
+  generation:
+    max_new_tokens: 100
+    temperature: 0.7
+    top_p: 0.9
+    do_sample: true
+    num_beams: 1
+
+  # Sample size for evaluation
+  num_eval_samples: 1000
+
+# =============================================================================
+# INFERENCE CONFIGURATION
+# =============================================================================
+inference:
+  # Default generation settings
+  max_new_tokens: 100
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 50
+  repetition_penalty: 1.1
+  do_sample: true
+
+  # Batch inference
+  batch_size: 8
+
+  # Output format
+  output_format: "json"  # Options: json, text
+
+# =============================================================================
+# OLLAMA EXPORT CONFIGURATION
+# =============================================================================
+ollama:
+  model_name: "wag-copywriter"
+  modelfile_template: |
+    FROM mistral:7b-instruct
+    ADAPTER ./adapter
+
+    PARAMETER temperature 0.7
+    PARAMETER top_p 0.9
+    PARAMETER num_ctx 2048
+
+    SYSTEM """You are a retail advertising copywriter for Walgreens. Generate concise, effective headlines and body copy for print advertisements. Focus on clarity, brand consistency, and promotional messaging."""
+
+# =============================================================================
+# HARDWARE CONFIGURATION
+# =============================================================================
+hardware:
+  # GPU settings
+  cuda_visible_devices: "0"  # Comma-separated GPU IDs
+
+  # Memory management
+  max_memory_mb: null  # Set to limit GPU memory usage
+
+  # For multi-GPU training (advanced)
+  distributed: false
+  deepspeed_config: null
+
+# =============================================================================
+# EXPERIMENT TRACKING (Optional)
+# =============================================================================
+tracking:
+  enabled: false
+
+  # Weights & Biases
+  wandb:
+    project: "wag-copywriter"
+    entity: null
+    run_name: null
+    tags:
+      - "mistral-7b"
+      - "lora"
+      - "retail-copy"
+
+  # MLflow
+  mlflow:
+    tracking_uri: null
+    experiment_name: "wag-copywriter"
+
+# =============================================================================
+# PATHS
+# =============================================================================
+paths:
+  # Base directories
+  project_root: "../.."
+  scripts_dir: ".."
+  output_dir: "../output"
+
+  # Model artifacts
+  checkpoint_dir: "../output/checkpoints"
+  final_model_dir: "../output/models/wag-copywriter"
+  adapter_dir: "../output/adapters"
+
+  # Logs
+  log_dir: "../output/logs"
