@@ -4,7 +4,7 @@ WAG Product Enrichment Script
 Enriches training data with product details from WAG Master Item.xlsx
 
 Usage:
-    python enrich_with_products.py --training ../output/data/wag_training_data_raw.json --master ../../WAG\ Master\ Item.xlsx
+    python enrich_with_products.py --training ../output/data/wag_training_data_raw.json --master "../../WAG Master Item.xlsx"
 
 Author: Enterprise Architecture Team
 Created: November 2025

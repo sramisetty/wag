@@ -40,6 +40,7 @@ from peft import (
     PeftModel,
 )
 from trl import SFTTrainer
+from transformers import TrainerCallback
 
 # Configure logging
 logging.basicConfig(
@@ -51,6 +52,143 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Status file for tracking training progress
+STATUS_FILE = Path(__file__).parent.parent / "output" / "training_status.json"
+
+
+class TrainingStatusCallback(TrainerCallback):
+    """Callback to track and save training progress."""
+
+    def __init__(self, status_file: Path):
+        self.status_file = status_file
+        self.start_time = None
+
+    def _save_status(self, status: dict):
+        """Save status to JSON file."""
+        self.status_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.status_file, 'w') as f:
+            json.dump(status, f, indent=2)
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.start_time = datetime.now()
+        self._save_status({
+            "status": "training",
+            "phase": "starting",
+            "current_step": 0,
+            "total_steps": state.max_steps if state.max_steps > 0 else "unknown",
+            "current_epoch": 0,
+            "total_epochs": args.num_train_epochs,
+            "percent_complete": 0,
+            "loss": None,
+            "eval_loss": None,
+            "learning_rate": args.learning_rate,
+            "started_at": self.start_time.isoformat(),
+            "elapsed_seconds": 0,
+            "estimated_remaining_seconds": None,
+            "message": "Training started..."
+        })
+
+    def on_step_end(self, args, state, control, **kwargs):
+        elapsed = (datetime.now() - self.start_time).total_seconds()
+
+        # Calculate progress
+        if state.max_steps > 0:
+            percent = (state.global_step / state.max_steps) * 100
+            total_steps = state.max_steps
+            if state.global_step > 0:
+                eta_seconds = (elapsed / state.global_step) * (state.max_steps - state.global_step)
+            else:
+                eta_seconds = None
+        else:
+            percent = 0
+            total_steps = "unknown"
+            eta_seconds = None
+
+        # Get current loss from log history
+        current_loss = None
+        if state.log_history:
+            for entry in reversed(state.log_history):
+                if 'loss' in entry:
+                    current_loss = entry['loss']
+                    break
+
+        self._save_status({
+            "status": "training",
+            "phase": "in_progress",
+            "current_step": state.global_step,
+            "total_steps": total_steps,
+            "current_epoch": state.epoch,
+            "total_epochs": args.num_train_epochs,
+            "percent_complete": round(percent, 2),
+            "loss": current_loss,
+            "eval_loss": None,
+            "learning_rate": args.learning_rate,
+            "started_at": self.start_time.isoformat(),
+            "elapsed_seconds": int(elapsed),
+            "estimated_remaining_seconds": int(eta_seconds) if eta_seconds else None,
+            "message": f"Training step {state.global_step}..."
+        })
+
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+        elapsed = (datetime.now() - self.start_time).total_seconds()
+
+        eval_loss = metrics.get('eval_loss') if metrics else None
+
+        if state.max_steps > 0:
+            percent = (state.global_step / state.max_steps) * 100
+        else:
+            percent = (state.epoch / args.num_train_epochs) * 100 if args.num_train_epochs > 0 else 0
+
+        self._save_status({
+            "status": "training",
+            "phase": "evaluating",
+            "current_step": state.global_step,
+            "total_steps": state.max_steps if state.max_steps > 0 else "unknown",
+            "current_epoch": state.epoch,
+            "total_epochs": args.num_train_epochs,
+            "percent_complete": round(percent, 2),
+            "loss": None,
+            "eval_loss": eval_loss,
+            "learning_rate": args.learning_rate,
+            "started_at": self.start_time.isoformat(),
+            "elapsed_seconds": int(elapsed),
+            "estimated_remaining_seconds": None,
+            "message": f"Evaluating at step {state.global_step}..."
+        })
+
+    def on_train_end(self, args, state, control, **kwargs):
+        elapsed = (datetime.now() - self.start_time).total_seconds()
+
+        # Get final losses
+        final_loss = None
+        final_eval_loss = None
+        if state.log_history:
+            for entry in reversed(state.log_history):
+                if final_loss is None and 'loss' in entry:
+                    final_loss = entry['loss']
+                if final_eval_loss is None and 'eval_loss' in entry:
+                    final_eval_loss = entry['eval_loss']
+                if final_loss and final_eval_loss:
+                    break
+
+        self._save_status({
+            "status": "completed",
+            "phase": "finished",
+            "current_step": state.global_step,
+            "total_steps": state.global_step,
+            "current_epoch": state.epoch,
+            "total_epochs": args.num_train_epochs,
+            "percent_complete": 100,
+            "loss": final_loss,
+            "eval_loss": final_eval_loss,
+            "learning_rate": args.learning_rate,
+            "started_at": self.start_time.isoformat(),
+            "completed_at": datetime.now().isoformat(),
+            "elapsed_seconds": int(elapsed),
+            "estimated_remaining_seconds": 0,
+            "message": "Training completed successfully!"
+        })
 
 
 class WAGTrainer:
@@ -114,7 +252,6 @@ class WAGTrainer:
             quantization_config=quant_config,
             device_map=self.config['model'].get('device_map', 'auto'),
             trust_remote_code=self.config['model'].get('trust_remote_code', True),
-            torch_dtype=getattr(torch, self.config['model'].get('torch_dtype', 'bfloat16')),
         )
 
         # Prepare model for k-bit training
@@ -249,7 +386,7 @@ class WAGTrainer:
             save_strategy=train_config['save_strategy'],
             save_steps=train_config['save_steps'],
             save_total_limit=train_config['save_total_limit'],
-            evaluation_strategy=train_config['eval_strategy'],
+            eval_strategy=train_config['eval_strategy'],
             eval_steps=train_config['eval_steps'],
             seed=train_config['seed'],
             dataloader_num_workers=train_config.get('dataloader_num_workers', 4),
@@ -307,15 +444,18 @@ class WAGTrainer:
             padding=True,
         )
 
+        # Initialize status callback
+        status_callback = TrainingStatusCallback(STATUS_FILE)
+
         # Initialize trainer
         self.trainer = SFTTrainer(
             model=self.model,
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=val_dataset,
-            tokenizer=self.tokenizer,
+            processing_class=self.tokenizer,
             data_collator=data_collator,
-            max_seq_length=self.config['training']['max_seq_length'],
+            callbacks=[status_callback],
         )
 
         # Train

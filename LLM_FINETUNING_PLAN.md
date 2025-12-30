@@ -1,6 +1,7 @@
 # WAG Retail Ad Copy LLM Fine-Tuning Plan
 
 *Document Created: November 29, 2025*
+*Last Updated: December 2025*
 *Project: Walgreens Ad Headline & Body Copy Automation*
 
 ---
@@ -252,30 +253,30 @@ test_split: 0.10   # 11,506 records
 
 ## 5. Implementation Roadmap
 
-### Phase 1: Data Preparation (Week 1-2)
+### Phase 1: Data Preparation (Week 1-2) ✅ COMPLETED
 
-- [ ] Extract WAG History to clean CSV/JSONL
-- [ ] Parse WIC codes from ItemCodeGroup01 column
-- [ ] Join with Master Item for product details
-- [ ] Create instruction-tuning dataset format
-- [ ] Implement train/val/test split (80/10/10)
-- [ ] Data quality validation and cleaning
-- [ ] Handle missing values and edge cases
+- [x] Extract WAG History to clean CSV/JSONL
+- [x] Parse WIC codes from ItemCodeGroup01 column
+- [x] Join with Master Item for product details
+- [x] Create instruction-tuning dataset format
+- [x] Implement train/val/test split (80/10/10)
+- [x] Data quality validation and cleaning
+- [x] Handle missing values and edge cases
 
-**Deliverable:** `training_data.jsonl` (115K records)
+**Deliverable:** `training_data.jsonl` (112,728 records - 97.5% training suitable)
 
-### Phase 2: Environment Setup (Week 2)
+### Phase 2: Environment Setup (Week 2) ✅ COMPLETED
 
-- [ ] Configure GPU environment (CUDA, cuDNN)
-- [ ] Install training framework (Unsloth recommended)
-- [ ] Download Mistral 7B Instruct base model
-- [ ] Set up experiment tracking (W&B or MLflow)
-- [ ] Configure Ollama for local inference
-- [ ] Test base model performance on sample prompts
+- [x] Configure GPU environment (CUDA, cuDNN)
+- [x] Install training framework (PyTorch + HuggingFace)
+- [x] Download Mistral 7B Instruct base model
+- [x] Set up experiment tracking
+- [x] Configure Ollama for local inference
+- [x] Test base model performance on sample prompts
 
-**Deliverable:** Working training environment
+**Deliverable:** Working training environment at `/mnt/data/sri/wag/scripts/venv/`
 
-### Phase 3: Model Training (Week 3)
+### Phase 3: Model Training (Week 3) 🔄 IN PROGRESS
 
 - [ ] Initial training run with default hyperparameters
 - [ ] Evaluate on validation set
@@ -297,16 +298,18 @@ test_split: 0.10   # 11,506 records
 
 **Deliverable:** Evaluation report with metrics
 
-### Phase 5: Integration & Deployment (Week 5)
+### Phase 5: Integration & Deployment (Week 5) ✅ PARTIALLY COMPLETED
 
-- [ ] Deploy model via Ollama API
-- [ ] Build inference pipeline per Instructions.txt workflow
+- [x] Deploy model via Ollama API
+- [x] Build inference pipeline per Instructions.txt workflow
+- [x] Build REST API server (Flask)
+- [x] Create server management scripts (start/stop/restart)
 - [ ] Integrate with EAB processing workflow
 - [ ] Implement fallback for low-confidence outputs
 - [ ] A/B testing against existing copy
-- [ ] Documentation and training for users
+- [x] Documentation and training for users
 
-**Deliverable:** Production-ready API endpoint
+**Deliverable:** Production-ready API endpoint at `http://<server>:5000/`
 
 ### Phase 6: Monitoring & Iteration (Ongoing)
 
@@ -458,13 +461,14 @@ curl http://ollama.local:11434/api/generate -d '{
 ## Appendix B: File Locations
 
 ```
-C:\Users\srami\Work\Playground\WAG\
-├── WAG History.xlsx          # Primary training data
-├── WAG Master Item.xlsx      # Product reference
-├── WAG History.fmp12         # FileMaker backup
-├── Instructions.txt          # Processing workflow
-├── LLM_FINETUNING_PLAN.md   # This document
-├── EABs\                     # Campaign templates
+/mnt/data/sri/wag/
+├── WAG History.xlsx              # Primary training data (115K records)
+├── WAG Master Item.xlsx          # Product reference (888K products)
+├── WAG History.fmp12             # FileMaker backup
+├── Instructions.txt              # Processing workflow
+├── LLM_FINETUNING_PLAN.md        # This document
+├── SCRIPTS_OVERVIEW.md           # Quick reference guide
+├── EABs/                         # Campaign templates (11 files)
 │   ├── 1.4 EAB.xls
 │   ├── 1.11 EAB.xls
 │   ├── 1.18 EAB.xls
@@ -476,12 +480,30 @@ C:\Users\srami\Work\Playground\WAG\
 │   ├── 1214 HI EAB.xls
 │   ├── 1228 HI EAB.xls
 │   └── 1221 PR EAB.xlsx
-└── PDFs\                     # Campaign samples
-    ├── 11_02 All Markets\
-    ├── 11_09 All Markets\
-    ├── 11_16 All Markets\
-    ├── 11_23 All Markets\
-    └── 11_30 All Markets\
+├── PDFs/                         # Campaign samples (20 PDFs)
+│   ├── 11_02 All Markets/
+│   ├── 11_09 All Markets/
+│   ├── 11_16 All Markets/
+│   ├── 11_23 All Markets/
+│   └── 11_30 All Markets/
+└── scripts/                      # Implementation code
+    ├── README.md                 # Detailed documentation
+    ├── requirements.txt          # Python dependencies
+    ├── run_pipeline.py           # Master orchestration
+    ├── venv/                     # Virtual environment
+    ├── data_prep/                # Data preparation scripts
+    ├── training/                 # Training scripts & config
+    ├── inference/                # API server & generation
+    │   ├── api_server.py         # Flask REST API
+    │   ├── start.sh              # Start server
+    │   ├── stop.sh               # Stop server
+    │   └── restart.sh            # Restart server
+    ├── utils/                    # Shared utilities
+    └── output/                   # Generated outputs
+        ├── data/                 # Training data
+        ├── data_enriched/        # Enriched data
+        ├── models/               # Trained models
+        └── reports/              # Evaluation reports
 ```
 
 ---
@@ -491,14 +513,53 @@ C:\Users\srami\Work\Playground\WAG\
 | Component | Technology | Version |
 |-----------|------------|---------|
 | Base Model | Mistral 7B Instruct | v0.2+ |
-| Training Framework | Unsloth | Latest |
+| Training Framework | PyTorch + HuggingFace TRL | Latest |
 | Quantization | BitsAndBytes | 0.41+ |
-| PEFT Library | Hugging Face PEFT | 0.6+ |
+| PEFT Library | Hugging Face PEFT | 0.7+ |
 | Inference Server | Ollama | 0.1.17+ |
+| REST API | Flask + Flask-CORS | 3.0+ |
 | Data Processing | Python/Pandas | 3.10+ |
 | GPU Framework | CUDA | 12.1+ |
 
 ---
 
+## Appendix D: API Server Reference
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Web UI with interactive testing |
+| GET | `/api/health` | Health check and status |
+| GET | `/api/models` | List available models |
+| GET | `/api/training/status` | Fine-tuning progress |
+| POST | `/api/generate` | Generate ad copy for products |
+| POST | `/api/generate/batch` | Batch generation for multiple items |
+| POST | `/api/generate/eab` | Process EAB slot data |
+
+### Web UI Features
+
+- **Model Selector** - Dropdown to choose from available Ollama models
+- **Temperature Control** - Adjustable creativity setting (0-2)
+- **Training Status Panel** - Real-time fine-tuning progress:
+  - Progress bar with percentage
+  - Steps, epochs, loss, elapsed time, ETA
+  - Auto-refreshes every 5 seconds
+
+### Server Management
+
+```bash
+cd /mnt/data/sri/wag/scripts/inference
+./start.sh           # Start server (background)
+./stop.sh            # Stop server
+./restart.sh         # Restart server
+```
+
+### Network Access
+
+Access from any machine on network: `http://<server-ip>:5000/`
+
+---
+
 *Document maintained by: Enterprise Architecture Team*
-*Last Updated: November 29, 2025*
+*Last Updated: December 2025*

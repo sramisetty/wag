@@ -61,7 +61,9 @@ nltk>=3.8.0              # Tokenization, etc.
 
 # API and web
 requests>=2.31.0
-flask>=3.0.0             # Optional: for API server
+flask>=3.0.0             # API server
+flask-cors>=4.0.0        # CORS support for API
+markdown>=3.5.0          # Markdown rendering for docs
 
 # =============================================================================
 # UTILITIES

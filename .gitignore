@@ -4,3 +4,19 @@
 __pycache__/
 *.pyc
 scripts/output/
+
+# Logs
+*.log
+scripts/training/*.log
+scripts/inference/*.log
+
+# PID files
+*.pid
+
+# Virtual environment
+scripts/venv/
+venv/
+
+# IDE
+.vscode/
+.idea/

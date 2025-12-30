@@ -1,150 +1,226 @@
 # WAG LLM Fine-Tuning Scripts Overview
 
-*Created: November 29, 2025*
+*Last Updated: December 2025*
 
-This document provides a quick reference for the scripts created to fine-tune a local LLM for retail ad copy generation.
+Quick reference for the WAG Ad Copy LLM fine-tuning project. For detailed documentation, see `scripts/README.md`.
 
 ---
 
 ## Project Structure
 
 ```
-WAG/
-├── LLM_FINETUNING_PLAN.md           # Full implementation plan document
-├── SCRIPTS_OVERVIEW.md              # This file
-│
+/mnt/data/sri/wag/
 ├── WAG History.xlsx                 # Source: 115K campaign records
 ├── WAG Master Item.xlsx             # Source: 888K products
-├── EABs/                            # Campaign templates
-├── PDFs/                            # Visual ad samples
+├── EABs/                            # 11 campaign template files
+├── PDFs/                            # 20 visual ad samples (by market)
+├── LLM_FINETUNING_PLAN.md           # Strategic planning document
+├── SCRIPTS_OVERVIEW.md              # This file
 │
 └── scripts/
-    ├── README.md                     # Detailed scripts documentation
-    ├── requirements.txt              # Python dependencies
-    ├── run_pipeline.py               # Full pipeline runner
+    ├── README.md                    # Detailed documentation
+    ├── requirements.txt             # Python dependencies
+    ├── run_pipeline.py              # Master orchestration script
+    ├── venv/                        # Virtual environment
     │
     ├── data_prep/
-    │   ├── __init__.py
-    │   ├── extract_training_data.py  # Extract from WAG History
-    │   ├── enrich_with_products.py   # Add product details
-    │   └── validate_data.py          # Data quality validation
+    │   ├── extract_training_data.py # Extract from WAG History
+    │   ├── enrich_with_products.py  # Add product details
+    │   └── validate_data.py         # Data quality validation
     │
     ├── training/
-    │   ├── __init__.py
-    │   ├── config.yaml               # Training configuration
-    │   ├── train.py                  # QLoRA fine-tuning
-    │   └── evaluate.py               # Model evaluation
+    │   ├── config.yaml              # Training configuration
+    │   ├── train.py                 # QLoRA fine-tuning
+    │   └── evaluate.py              # Model evaluation
     │
     ├── inference/
-    │   ├── __init__.py
-    │   ├── generate.py               # Ad copy generation
-    │   ├── Modelfile                 # Ollama model definition
-    │   └── ollama_setup.py           # Ollama deployment helper
+    │   ├── api_server.py            # Flask REST API server
+    │   ├── generate.py              # CLI generation tool
+    │   ├── ollama_setup.py          # Ollama deployment helper
+    │   ├── Modelfile                # Ollama model definition
+    │   ├── Modelfile.base           # Base model (no training)
+    │   ├── start.sh                 # Start API server
+    │   ├── stop.sh                  # Stop API server
+    │   └── restart.sh               # Restart API server
     │
-    └── utils/
-        ├── __init__.py
-        └── helpers.py                # Shared utilities
+    ├── utils/
+    │   └── helpers.py               # Shared utilities
+    │
+    └── output/
+        ├── data/                    # Extracted training data
+        ├── data_enriched/           # Enriched training data
+        ├── models/                  # Fine-tuned models
+        ├── reports/                 # Validation/evaluation reports
+        ├── checkpoints/             # Training checkpoints
+        └── logs/                    # Training logs
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Setup Environment
+### 1. Activate Virtual Environment
 
 ```bash
-# Navigate to scripts directory
-cd WAG/scripts
-
-# Create virtual environment (recommended)
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
-
-# Install PyTorch with CUDA support
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# Install all dependencies
-pip install -r requirements.txt
+cd /mnt/data/sri/wag/scripts
+source venv/bin/activate
 ```
 
-### 2. Run Full Pipeline
+### 2. Start API Server
 
 ```bash
-# Run everything: data prep + training + evaluation
+cd inference
+./start.sh
+```
+
+Access: `http://<server-ip>:5000/`
+
+### 3. Run Full Pipeline
+
+```bash
 python run_pipeline.py --all
-```
-
-### 3. Or Run Individual Stages
-
-```bash
-# Data preparation only
-python run_pipeline.py --prep
-
-# Training only (requires prepared data)
-python run_pipeline.py --train
-
-# Evaluation only (requires trained model)
-python run_pipeline.py --eval
-
-# Setup Ollama deployment
-python run_pipeline.py --ollama
-
-# Check prerequisites
-python run_pipeline.py --check
 ```
 
 ---
 
-## Script Descriptions
+## API Server Management
 
-### Data Preparation (`scripts/data_prep/`)
+### Start/Stop/Restart
 
-| Script | Description | Input | Output |
-|--------|-------------|-------|--------|
-| `extract_training_data.py` | Extracts headline/body copy pairs | WAG History.xlsx | wag_train.jsonl, wag_val.jsonl, wag_test.jsonl |
-| `enrich_with_products.py` | Adds product details (brand, description) | Training JSON + Master Item.xlsx | wag_enriched_*.jsonl |
-| `validate_data.py` | Validates data quality, generates reports | Training JSON | validation_report.md |
-
-**Example:**
 ```bash
-cd scripts/data_prep
+cd /mnt/data/sri/wag/scripts/inference
 
+./start.sh           # Start in background
+./stop.sh            # Stop server
+./restart.sh         # Restart server
+
+# Custom port
+PORT=8080 ./start.sh
+
+# Foreground mode (debugging)
+python api_server.py --host 0.0.0.0 --port 5000
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Web UI with interactive testing |
+| GET | `/api/health` | Health check |
+| GET | `/api/models` | List available models |
+| GET | `/api/training/status` | Fine-tuning progress |
+| POST | `/api/generate` | Generate ad copy |
+| POST | `/api/generate/batch` | Batch generation |
+| POST | `/api/generate/eab` | Process EAB data |
+
+### Web UI Features
+
+- **Model Selector** - Choose from available Ollama models
+- **Temperature Control** - Adjust creativity (0-2)
+- **Training Status Panel** - Real-time progress, loss, ETA (auto-refreshes)
+
+### Network Access
+
+Access from other machines: `http://<server-ip>:5000/`
+
+Example: `http://172.16.1.130:5000/`
+
+### Server Files
+
+| File | Purpose |
+|------|---------|
+| `api_server.py` | Main Flask application |
+| `api_server.log` | Server logs |
+| `api_server.pid` | Process ID file |
+| `start.sh` | Start script |
+| `stop.sh` | Stop script |
+| `restart.sh` | Restart script |
+
+---
+
+## Pipeline Commands
+
+```bash
+cd /mnt/data/sri/wag/scripts
+
+# Full pipeline
+python run_pipeline.py --all
+
+# Individual stages
+python run_pipeline.py --prep      # Data preparation only
+python run_pipeline.py --train     # Training only
+python run_pipeline.py --eval      # Evaluation only
+python run_pipeline.py --ollama    # Ollama setup
+
+# Verification
+python run_pipeline.py --check     # Check prerequisites
+```
+
+---
+
+## Script Reference
+
+### Data Preparation
+
+| Script | Input | Output |
+|--------|-------|--------|
+| `extract_training_data.py` | WAG History.xlsx | wag_train/val/test.jsonl |
+| `enrich_with_products.py` | Training JSON + Master Item | wag_enriched_*.jsonl |
+| `validate_data.py` | Training JSON | validation_report.md |
+
+```bash
+cd /mnt/data/sri/wag/scripts/data_prep
+
+# Extract training data
 python extract_training_data.py \
     --input "../../WAG History.xlsx" \
     --output "../output/data"
+
+# Enrich with product details
+python enrich_with_products.py \
+    --training "../output/data/wag_training_data_raw.json" \
+    --master "../../WAG Master Item.xlsx" \
+    --output "../output/data_enriched"
+
+# Validate data quality
+python validate_data.py \
+    --input "../output/data/wag_training_data_raw.json" \
+    --output "../output/reports/validation_report.md"
 ```
 
-### Training (`scripts/training/`)
+### Training
 
-| Script | Description | Input | Output |
-|--------|-------------|-------|--------|
-| `config.yaml` | Training hyperparameters | - | - |
-| `train.py` | QLoRA fine-tuning | Training JSONL + config | LoRA adapter |
-| `evaluate.py` | Model evaluation | Adapter + test data | Evaluation report |
+| Script | Input | Output |
+|--------|-------|--------|
+| `train.py` | Training JSONL + config.yaml | LoRA adapter |
+| `evaluate.py` | Adapter + test data | Evaluation report |
 
-**Example:**
 ```bash
-cd scripts/training
+cd /mnt/data/sri/wag/scripts/training
 
-# Train with default config
+# Train model
 python train.py --config config.yaml
 
 # Resume from checkpoint
 python train.py --config config.yaml --resume checkpoint-500
+
+# Evaluate model
+python evaluate.py \
+    --model ../output/models/wag-copywriter \
+    --test ../output/data/wag_test.jsonl \
+    --output ../output/reports/evaluation
 ```
 
-### Inference (`scripts/inference/`)
+### Inference
 
-| Script | Description | Input | Output |
-|--------|-------------|-------|--------|
-| `generate.py` | Generate ad copy | WIC codes, price, offer | Headline + body copy |
-| `ollama_setup.py` | Ollama deployment | Trained adapter | Ollama model |
-| `Modelfile` | Ollama model definition | - | - |
+| Script | Input | Output |
+|--------|-------|--------|
+| `generate.py` | WIC codes, price, offer | Headline + body copy |
+| `api_server.py` | HTTP requests | JSON responses |
+| `ollama_setup.py` | Trained adapter | Ollama model |
 
-**Example:**
 ```bash
-cd scripts/inference
+cd /mnt/data/sri/wag/scripts/inference
 
 # Single generation
 python generate.py --wics "691500,691501" --price "$9.99" --offer "BOGO 50%"
@@ -152,24 +228,35 @@ python generate.py --wics "691500,691501" --price "$9.99" --offer "BOGO 50%"
 # Batch from EAB file
 python generate.py --eab "../../EABs/11.30 EAB.xls" --output results.json
 
-# Using Ollama API
+# Using Ollama
 python generate.py --wics "691500" --use-ollama
 ```
 
 ---
 
-## Key Configuration (`training/config.yaml`)
+## Configuration Reference
+
+### Training Config (`training/config.yaml`)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `model.name` | mistralai/Mistral-7B-Instruct-v0.2 | Base model to fine-tune |
-| `lora.r` | 64 | LoRA rank (higher = more capacity) |
-| `lora.lora_alpha` | 128 | LoRA alpha scaling |
-| `training.num_train_epochs` | 3 | Number of training epochs |
-| `training.per_device_train_batch_size` | 4 | Batch size per GPU |
-| `training.gradient_accumulation_steps` | 8 | Effective batch = 4 × 8 = 32 |
+| `model.name` | Mistral-7B-Instruct-v0.2 | Base model |
+| `lora.r` | 64 | LoRA rank |
+| `lora.lora_alpha` | 128 | LoRA scaling |
+| `training.num_train_epochs` | 3 | Training epochs |
+| `training.per_device_train_batch_size` | 4 | Batch size |
+| `training.gradient_accumulation_steps` | 8 | Gradient accumulation |
 | `training.learning_rate` | 2e-4 | Learning rate |
 | `training.max_seq_length` | 512 | Max sequence length |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_URL` | http://localhost:11434 | Ollama API URL |
+| `WAG_MODEL` | wag-copywriter | Default model |
+| `HOST` | 0.0.0.0 | API server host |
+| `PORT` | 5000 | API server port |
 
 ---
 
@@ -181,21 +268,48 @@ python generate.py --wics "691500" --use-ollama
 | GPU VRAM | 12 GB | 16 GB | 24 GB |
 | System RAM | 32 GB | 64 GB | 128 GB |
 | Storage | 50 GB SSD | 100 GB NVMe | 200 GB NVMe |
-| Training Time | 8-12 hours | 4-6 hours | 2-3 hours |
+
+---
+
+## Ollama Deployment
+
+### Quick Setup (No Training)
+
+```bash
+cd /mnt/data/sri/wag/scripts/inference
+python ollama_setup.py --setup-base
+ollama run wag-copywriter-base
+```
+
+### After Fine-Tuning
+
+```bash
+python ollama_setup.py --create
+python ollama_setup.py --test
+ollama run wag-copywriter
+```
+
+### API Usage
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+  "model": "wag-copywriter",
+  "prompt": "Products: ADVIL PM 20CT | Price: $8.99 | Offer: BOGO 50%",
+  "stream": false
+}'
+```
 
 ---
 
 ## Output Locations
 
-After running the pipeline, outputs are stored in `scripts/output/`:
-
 ```
 scripts/output/
 ├── data/                          # Extracted training data
 │   ├── wag_training_data_raw.json
-│   ├── wag_train.jsonl
-│   ├── wag_val.jsonl
-│   ├── wag_test.jsonl
+│   ├── wag_train.jsonl            # 80% training
+│   ├── wag_val.jsonl              # 10% validation
+│   ├── wag_test.jsonl             # 10% test
 │   └── extraction_stats.json
 │
 ├── data_enriched/                 # Enriched with product details
@@ -204,117 +318,104 @@ scripts/output/
 │   ├── wag_enriched_val.jsonl
 │   └── wag_enriched_test.jsonl
 │
-├── models/                        # Trained models
-│   └── wag-copywriter/
-│       ├── adapter/               # LoRA weights
-│       ├── training_config.yaml
-│       └── Modelfile
+├── models/wag-copywriter/         # Trained models
+│   ├── adapter/                   # LoRA weights
+│   ├── training_config.yaml
+│   └── Modelfile
 │
-├── checkpoints/                   # Training checkpoints
-│   └── checkpoint-*/
-│
-├── reports/                       # Evaluation reports
+├── reports/                       # Reports
 │   ├── validation_report.md
 │   ├── validation_report.json
 │   ├── evaluation.md
 │   └── evaluation.json
 │
+├── checkpoints/                   # Training checkpoints
 └── logs/                          # Training logs
-```
-
----
-
-## Ollama Deployment
-
-### Quick Setup (No Training Required)
-
-Get started immediately with the base Mistral model:
-
-```bash
-cd scripts/inference
-
-# Setup base model with WAG system prompt
-python ollama_setup.py --setup-base
-
-# Test it
-ollama run wag-copywriter-base
-```
-
-### After Fine-Tuning
-
-```bash
-# Create model from fine-tuned adapter
-python ollama_setup.py --create
-
-# Test the model
-python ollama_setup.py --test
-
-# List available models
-python ollama_setup.py --list
-```
-
-### API Usage
-
-```bash
-curl http://localhost:11434/api/generate -d '{
-  "model": "wag-copywriter",
-  "prompt": "Products: ADVIL PM 20CT | Brand: Advil | Price: $8.99 | Offer: BOGO 50%",
-  "stream": false
-}'
 ```
 
 ---
 
 ## Troubleshooting
 
-### Out of Memory (OOM)
-
-```yaml
-# In config.yaml, reduce batch size:
-training:
-  per_device_train_batch_size: 2  # Reduced from 4
-  gradient_accumulation_steps: 16  # Increased to maintain effective batch
-```
-
-### Slow Training
-
-- Install Unsloth for 2x faster training: `pip install unsloth`
-- Enable `group_by_length: true` in config
-- Increase `dataloader_num_workers`
-
-### Poor Generation Quality
-
-- Increase training epochs (try 5-6)
-- Use enriched data with product details
-- Try higher LoRA rank (r: 128)
-- Adjust temperature (0.5 for more focused, 0.9 for more creative)
-
-### Data Preparation Issues
+### API Server
 
 ```bash
-# If Excel files fail to load, ensure these are installed:
+# Port in use
+sudo fuser -k 5000/tcp
+
+# Check logs
+tail -f /mnt/data/sri/wag/scripts/inference/api_server.log
+
+# Network access issue
+# Ensure --host 0.0.0.0 and check firewall
+sudo ufw allow 5000
+```
+
+### Training
+
+```yaml
+# Out of Memory - reduce batch size in config.yaml:
+training:
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 16
+```
+
+### Ollama
+
+```bash
+# Start service
+ollama serve
+
+# Check models
+ollama list
+
+# Pull base model
+ollama pull mistral:7b-instruct
+```
+
+### Dependencies
+
+```bash
+# Activate venv first!
+source /mnt/data/sri/wag/scripts/venv/bin/activate
+
+# Reinstall dependencies
+pip install -r requirements.txt
+
+# Excel support
 pip install openpyxl xlrd
 ```
 
 ---
 
-## Next Steps After Setup
+## Data Statistics
 
-1. **Review the plan:** Read `LLM_FINETUNING_PLAN.md` for full details
-2. **Check prerequisites:** `python run_pipeline.py --check`
-3. **Prepare data:** `python run_pipeline.py --prep`
-4. **Review validation:** Check `scripts/output/reports/validation_report.md`
+| Metric | Value |
+|--------|-------|
+| Total Records | 112,728 |
+| Training Suitable | 97.5% |
+| With Body Copy | 72.8% |
+| Unique Products | 25,835 |
+| Avg WICs per Example | 7.6 |
+
+---
+
+## Next Steps
+
+1. **Check prerequisites:** `python run_pipeline.py --check`
+2. **Start API server:** `./inference/start.sh`
+3. **Test API:** `curl http://localhost:5000/api/health`
+4. **Prepare data:** `python run_pipeline.py --prep`
 5. **Train model:** `python run_pipeline.py --train`
-6. **Evaluate:** `python run_pipeline.py --eval`
-7. **Deploy:** `python run_pipeline.py --ollama`
-8. **Test generation:** `python scripts/inference/generate.py --wics "691500"`
+6. **Deploy:** `python run_pipeline.py --ollama`
 
 ---
 
 ## Support
 
-For questions or issues, contact the Enterprise Architecture Team.
+**Team:** Enterprise Architecture Team
 
----
-
-*Document auto-generated with project setup*
+**Documentation:**
+- `scripts/README.md` - Detailed documentation
+- `LLM_FINETUNING_PLAN.md` - Project planning
+- `MODEL_GUIDE.md` - Model architecture & post-training roadmap
